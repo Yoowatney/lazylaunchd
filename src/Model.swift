@@ -30,18 +30,30 @@ enum Schedule: Equatable {
         return []
     }
 
+    /// Short enough for the sidebar, where the row is narrow and a status suffix may
+    /// follow. Listing even three times overflowed the row, and the truncation ate the
+    /// "+N" that was supposed to say more existed - so past one time this shows the
+    /// first and a count, which is a predictable width. `fullLabel` is the tooltip.
     var label: String {
+        guard case .daily(let times) = self, times.count > 1 else { return fullLabel }
+        return "daily \(times[0].text) +\(times.count - 1)"
+    }
+
+    /// Every time, spelled out. Used in the detail pane, which has the room, and as
+    /// the tooltip behind the abbreviated form.
+    var fullLabel: String {
         switch self {
         case .daily(let times):
-            let shown = times.prefix(3).map(\.text).joined(separator: ", ")
-            let rest = times.count - 3
-            return rest > 0 ? "daily \(shown) +\(rest)" : "daily \(shown)"
+            return "daily " + times.map(\.text).joined(separator: ", ")
         case .interval(let s):
             return s % 3600 == 0 ? "every \(s / 3600)h" : "every \(s)s"
         case .manual:
             return "manual"
         }
     }
+
+    /// True when `label` had to leave something out.
+    var isAbbreviated: Bool { label != fullLabel }
 
     /// Soonest of the scheduled times, for the "next run in ..." line. Interval jobs
     /// get none: their phase depends on when launchd last started them, which is not

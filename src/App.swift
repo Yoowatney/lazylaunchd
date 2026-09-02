@@ -39,7 +39,9 @@ struct DetailView: View {
             }
 
             HStack(spacing: 6) {
-                Chip(icon: "clock", text: job.schedule.label)
+                // Every time, not the sidebar's abbreviation: this is the detail pane
+                // and it is where you come to see them.
+                Chip(icon: "clock", text: job.schedule.fullLabel)
                 switch runner.state(for: job) {
                 case .idle(let e) where e == 0:
                     Chip(icon: "checkmark.circle.fill", text: "last exit 0", tint: .green)

@@ -39,6 +39,11 @@ struct JobRow: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 3)
+        .contentShape(Rectangle())
+        // The row is too narrow to list several times, so it shows the first and a
+        // count. Hovering anywhere on the row gives the rest; selecting the agent
+        // spells them out in full in the detail pane.
+        .help(job.schedule.isAbbreviated ? job.schedule.fullLabel : "")
     }
 }
 
