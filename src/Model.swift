@@ -103,16 +103,51 @@ enum JobState {
 
 // MARK: - Shell
 
+/// Everything a command said, rather than half of it. The previous version returned
+/// stdout alone and gave stderr a pipe it never read, so a failing launchctl - which
+/// says nothing on stdout and reports itself on stderr with a non-zero status -
+/// arrived here as an empty string and was indistinguishable from success.
+struct Output {
+    let stdout: String
+    let stderr: String
+    let status: Int32
+
+    var ok: Bool { status == 0 }
+
+    /// What to show a person. launchctl is not always talkative when it fails, so the
+    /// status is the fallback rather than an empty line.
+    var message: String {
+        let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "launchctl exited with status \(status)." : trimmed
+    }
+}
+
 @discardableResult
-func run(_ path: String, _ args: [String]) -> String {
+func run(_ path: String, _ args: [String]) -> Output {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: path)
     p.arguments = args
-    let pipe = Pipe()
-    p.standardOutput = pipe
-    p.standardError = Pipe()
-    do { try p.run() } catch { return "" }
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let out = Pipe()
+    let err = Pipe()
+    p.standardOutput = out
+    p.standardError = err
+    do { try p.run() } catch {
+        return Output(stdout: "", stderr: error.localizedDescription, status: -1)
+    }
+    // Both pipes are drained at once. Reading one to the end and then the other
+    // deadlocks the moment a process fills the pipe nobody is reading: it blocks on
+    // the write, so it never closes the pipe we are blocked on.
+    var errData = Data()
+    let draining = DispatchGroup()
+    draining.enter()
+    DispatchQueue.global().async {
+        errData = err.fileHandleForReading.readDataToEndOfFile()
+        draining.leave()
+    }
+    let outData = out.fileHandleForReading.readDataToEndOfFile()
+    draining.wait()
     p.waitUntilExit()
-    return String(data: data, encoding: .utf8) ?? ""
+    return Output(stdout: String(data: outData, encoding: .utf8) ?? "",
+                  stderr: String(data: errData, encoding: .utf8) ?? "",
+                  status: p.terminationStatus)
 }

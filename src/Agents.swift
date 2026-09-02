@@ -73,7 +73,7 @@ enum Agents {
     /// Parses `launchctl list`: columns are PID, last exit status, label.
     static func states() -> [String: JobState] {
         var out: [String: JobState] = [:]
-        for line in run("/bin/launchctl", ["list"]).split(separator: "\n").dropFirst() {
+        for line in run("/bin/launchctl", ["list"]).stdout.split(separator: "\n").dropFirst() {
             let cols = line.split(separator: "\t", omittingEmptySubsequences: false)
             guard cols.count >= 3 else { continue }
             let label = String(cols[2])

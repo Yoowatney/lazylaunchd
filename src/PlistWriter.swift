@@ -65,9 +65,16 @@ enum PlistWriter {
 
     /// bootout then bootstrap - launchd reads the plist once at load, so a schedule
     /// change does nothing until the job is re-registered.
-    static func reload(label: String, plistPath: String) {
+    ///
+    /// Only bootstrap's result is returned. bootout fails routinely and harmlessly,
+    /// because an agent that was never loaded has nothing to unload. A failed
+    /// bootstrap is the opposite: bootout has already succeeded, so the agent is now
+    /// unloaded and stays that way. That is the one outcome the caller has to hear
+    /// about, and it used to be discarded along with everything else.
+    @discardableResult
+    static func reload(label: String, plistPath: String) -> Output {
         run("/bin/launchctl", ["bootout", "gui/\(uid)/\(label)"])
-        run("/bin/launchctl", ["bootstrap", "gui/\(uid)", plistPath])
+        return run("/bin/launchctl", ["bootstrap", "gui/\(uid)", plistPath])
     }
 
     static func setSchedule(_ schedule: Schedule, for job: Job, isRunning: Bool) throws {
@@ -79,7 +86,15 @@ enum PlistWriter {
 
         apply(schedule, to: &dict)
         try save(dict, to: job.plistPath)
-        reload(label: job.label, plistPath: job.plistPath)
+        // The plist is already written at this point, so it is kept rather than rolled
+        // back - the schedule the user asked for is the one on disk, and saying so is
+        // more use than quietly restoring the old one.
+        let loaded = reload(label: job.label, plistPath: job.plistPath)
+        guard loaded.ok else {
+            throw PlistError.write(
+                "Saved the new schedule, but launchd would not load it back: "
+                + "\(loaded.message)\n\n\(job.label) is not loaded until this is fixed.")
+        }
     }
 
     /// Unloads the agent and puts its plist in the Trash. Trash rather than unlink:
@@ -124,6 +139,11 @@ enum PlistWriter {
             dict["StandardErrorPath"] = logPath
         }
         try save(dict, to: path)
-        reload(label: label, plistPath: path)
+        let loaded = reload(label: label, plistPath: path)
+        guard loaded.ok else {
+            throw PlistError.write(
+                "Wrote \(path), but launchd refused to load it: \(loaded.message)\n\n"
+                + "The file is still there, so it will show up as an agent that is not running.")
+        }
     }
 }
