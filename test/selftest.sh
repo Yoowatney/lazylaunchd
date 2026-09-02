@@ -5,15 +5,23 @@
 #
 #   ./test/selftest.sh
 #
-# The model and writer are taken from the app source (everything above the Views
-# section) so the test always exercises the shipping code, not a copy of it.
+# It compiles the shipping sources - not a copy of them - alongside a main that drives
+# the writer. Only the non-UI files are needed, and naming them explicitly means adding
+# a view can never quietly change what is under test. This used to slice the single
+# source file by line number, which tied the test to where things happened to sit.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VIEWS=$(grep -n '^// MARK: - Views' src/LazyLaunchd.swift | cut -d: -f1)
-head -n $((VIEWS - 1)) src/LazyLaunchd.swift > /tmp/lr-selftest.swift
-cat test/selftest-main.swift >> /tmp/lr-selftest.swift
+SOURCES=(src/Model.swift src/Agents.swift src/PlistWriter.swift)
+for f in "${SOURCES[@]}"; do
+  [ -f "$f" ] || { echo "missing $f - did the sources move?" >&2; exit 1; }
+done
 
-swiftc -swift-version 5 -o /tmp/lr-selftest-bin /tmp/lr-selftest.swift
-/tmp/lr-selftest-bin
-rm -f /tmp/lr-selftest.swift /tmp/lr-selftest-bin
+# Swift only allows top-level statements in a file called main.swift, so the driver
+# gets copied under that name rather than being stuck with it in the repo.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+cp test/selftest-main.swift "$WORK/main.swift"
+
+swiftc -swift-version 5 -o "$WORK/selftest" "${SOURCES[@]}" "$WORK/main.swift"
+"$WORK/selftest"

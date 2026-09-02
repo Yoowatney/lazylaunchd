@@ -26,7 +26,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 #    that is single-actor by construction.
 swiftc -parse-as-library -swift-version 5 -O \
   -o "$APP/Contents/MacOS/$APP_NAME" \
-  "$SRC_DIR/src/$APP_NAME.swift"
+  "$SRC_DIR"/src/*.swift
 
 echo "==> Writing bundle"
 cat > "$APP/Contents/Info.plist" <<PLIST

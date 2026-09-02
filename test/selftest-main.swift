@@ -1,8 +1,11 @@
+// Driver for test/selftest.sh. Compiled together with the app's non-UI sources, and
+// copied to main.swift first because Swift only allows top-level statements there.
 
-// ---- self check ----
+import Foundation
+
 let LBL = "com.lazylaunchd.selftest"
-let SCRIPT = "/tmp/lr-selftest.sh"
-let LOG = "/tmp/lr-selftest.log"
+let SCRIPT = "/tmp/lazylaunchd-selftest.sh"
+let LOG = "/tmp/lazylaunchd-selftest.log"
 let PLIST = (Agents.directory as NSString).appendingPathComponent("\(LBL).plist")
 
 func fail(_ m: String) -> Never { print("FAIL: \(m)"); exit(1) }
