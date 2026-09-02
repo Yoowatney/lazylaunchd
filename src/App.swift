@@ -110,7 +110,9 @@ struct DetailView: View {
                 Text(deleteError ?? "")
             }
 
-            LogPane(text: runner.output, isRunning: runner.isRunning, path: runner.activeLog)
+            LogPane(text: runner.output(for: job),
+                    isRunning: runner.isRunning(job),
+                    path: runner.activeLog(for: job))
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

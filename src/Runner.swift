@@ -6,9 +6,12 @@ import Foundation
 final class Runner: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var states: [String: JobState] = [:]
-    @Published var output: String = ""
+    /// Keyed by label, because one shared string showed the last run's log under
+    /// whichever agent you selected next - reading as if that agent had produced it.
+    /// Keeping them apart also means switching away and back does not lose a log.
+    @Published private(set) var outputs: [String: String] = [:]
+    @Published private(set) var activeLogs: [String: String] = [:]
     @Published var isRunning = false
-    @Published var activeLog: String?
 
     private var offset: UInt64 = 0
     private var watchedLog: String?
@@ -20,6 +23,13 @@ final class Runner: ObservableObject {
         states = Agents.states()
     }
 
+    func output(for job: Job) -> String { outputs[job.label] ?? "" }
+    func activeLog(for job: Job) -> String? { activeLogs[job.label] }
+
+    /// True only for the agent actually running, so the log pane's "live" marker
+    /// does not appear on every agent while one of them runs.
+    func isRunning(_ job: Job) -> Bool { isRunning && runningLabel == job.label }
+
     func state(for job: Job) -> JobState {
         if isRunning, runningLabel == job.label { return .running }
         return states[job.label] ?? .notLoaded
@@ -27,8 +37,8 @@ final class Runner: ObservableObject {
 
     func start(_ job: Job) {
         guard !isRunning else { return }
-        output = ""
-        activeLog = nil
+        outputs[job.label] = ""
+        activeLogs[job.label] = nil
         isRunning = true
         runningLabel = job.label
 
@@ -39,7 +49,7 @@ final class Runner: ObservableObject {
 
         let err = run("/bin/launchctl", ["start", job.label])
         if !err.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            output = err
+            outputs[job.label] = err
             isRunning = false
             runningLabel = nil
             states = Agents.states()
@@ -62,13 +72,13 @@ final class Runner: ObservableObject {
                 if now > (before[path] ?? 0) {
                     watchedLog = path
                     offset = before[path] ?? 0
-                    activeLog = path
+                    activeLogs[job.label] = path
                     break
                 }
             }
         }
         if let path = watchedLog, let chunk = read(path, from: offset), !chunk.isEmpty {
-            output += chunk
+            outputs[job.label, default: ""] += chunk
             offset += UInt64(chunk.utf8.count)
         }
 
@@ -77,10 +87,12 @@ final class Runner: ObservableObject {
 
         // One last read: the job may have written its final lines after we last polled.
         if let path = watchedLog, let chunk = read(path, from: offset), !chunk.isEmpty {
-            output += chunk
+            outputs[job.label, default: ""] += chunk
             offset += UInt64(chunk.utf8.count)
         }
-        if output.isEmpty { output = "(the agent wrote nothing to its log)" }
+        if outputs[job.label, default: ""].isEmpty {
+            outputs[job.label] = "(the agent wrote nothing to its log)"
+        }
         timer?.invalidate()
         timer = nil
         isRunning = false
