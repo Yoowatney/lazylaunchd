@@ -228,6 +228,22 @@ enum PlistWriter {
         reload(label: job.label, plistPath: job.plistPath)
     }
 
+    /// Unloads the agent and puts its plist in the Trash. Trash rather than unlink:
+    /// deleting is the one action here with nothing to undo it, and macOS already
+    /// ships the undo.
+    static func remove(_ job: Job, isRunning: Bool) throws {
+        if isRunning { throw PlistError.running }
+        run("/bin/launchctl", ["bootout", "gui/\(uid)/\(job.label)"])
+        let fm = FileManager.default
+        for path in [job.plistPath, job.plistPath + ".bak"] where fm.fileExists(atPath: path) {
+            do {
+                try fm.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+            } catch {
+                throw PlistError.write("Unloaded it, but could not move \(path) to the Trash: \(error.localizedDescription)")
+            }
+        }
+    }
+
     static func create(label: String, program: String, arguments: String,
                        schedule: Schedule, logPath: String) throws {
         guard label.contains("."), !label.hasPrefix("."), !label.hasSuffix(".") else {
@@ -665,7 +681,20 @@ struct NewAgentSheet: View {
 struct DetailView: View {
     let job: Job
     @ObservedObject var runner: Runner
+    var onDeleted: () -> Void = {}
     @State private var editingSchedule = false
+    @State private var confirmingDelete = false
+    @State private var deleteError: String?
+
+    private func delete() {
+        do {
+            try PlistWriter.remove(job, isRunning: runner.isRunning)
+            runner.refresh()
+            onDeleted()
+        } catch {
+            deleteError = error.localizedDescription
+        }
+    }
 
     private var nextRunText: String? {
         guard let next = job.schedule.nextFire else { return nil }
@@ -724,11 +753,34 @@ struct DetailView: View {
                     NSWorkspace.shared.selectFile(job.plistPath, inFileViewerRootedAtPath: "")
                 }
                 .controlSize(.large)
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    confirmingDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .controlSize(.large)
+                .disabled(runner.isRunning)
+                .help("Unload and move the plist to the Trash")
             }
             .sheet(isPresented: $editingSchedule) {
                 EditScheduleSheet(job: job,
                                   isRunning: runner.isRunning,
                                   onSaved: { runner.refresh() })
+            }
+            .confirmationDialog("Delete \(job.shortName)?",
+                                isPresented: $confirmingDelete, titleVisibility: .visible) {
+                Button("Move to Trash", role: .destructive) { delete() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The agent is unloaded and its plist goes to the Trash, so you can put it back from Finder. Anything the job itself created is left alone.")
+            }
+            .alert("Could not delete", isPresented: .constant(deleteError != nil)) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
             }
 
             LogPane(text: runner.output, isRunning: runner.isRunning, path: runner.activeLog)
@@ -778,7 +830,9 @@ struct ContentView: View {
             }
         } detail: {
             if let selection {
-                DetailView(job: selection, runner: runner)
+                DetailView(job: selection, runner: runner,
+                           onDeleted: { self.selection = runner.jobs.first })
+                    .id(selection.label)
             } else {
                 ContentUnavailableView(
                     "No job selected",

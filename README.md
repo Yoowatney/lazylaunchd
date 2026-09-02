@@ -18,6 +18,7 @@ to before you can `tail` it. This does those three things for you.
 - **Runs one now** and streams its output live, from whichever log it actually writes to
 - **Changes a schedule** without opening the plist in an editor
 - **Creates a new agent** from a script, a schedule and a log path
+- **Deletes one** — unloads it and puts the plist in the Trash, so you can put it back
 
 ## Install
 
@@ -42,9 +43,9 @@ around the job before starting it — `StandardOutPath`, `StandardErrorPath`, an
 `*.log` beside them — and then follows whichever file actually grows. That means it
 finds the right log without you configuring anything per job.
 
-## Editing and creating
+## Editing, creating, deleting
 
-Both write real launchd config, so they are careful about it:
+These write real launchd config, so they are careful about it:
 
 - The plist is serialised and validated in memory, written to a temp file, then moved
   into place in one step — a crash mid-write cannot leave launchd reading half a file.
@@ -54,18 +55,21 @@ Both write real launchd config, so they are careful about it:
 - A job that is running right now cannot be edited; reloading it would kill it.
 - Creating checks the label looks like a label, that it is not already taken, and
   that the script exists and is executable.
+- Deleting asks first, then unloads the agent and moves the plist to the **Trash**
+  rather than unlinking it — it is the one action with nothing to undo it, and macOS
+  already ships the undo. Whatever the job itself created is left alone.
 
-`test/selftest.sh` round-trips all of that against real launchd with a scratch agent
-that it removes afterwards. Run it before changing `PlistWriter`.
+`test/selftest.sh` round-trips all of that against real launchd with a scratch agent,
+down to checking the deleted plist is recoverable from the Trash. Run it before
+changing `PlistWriter`.
 
 ## What it deliberately does not do
 
-- **Delete agents.** Removing a plist is a `rm` you should mean, and an undo-less
-  delete button in a list you navigate with arrow keys is a bad trade.
 - **Show system agents.** `launchctl list` has hundreds of Apple entries. None of
   them are yours to trigger.
 - **Edit anything but the schedule.** Arbitrary plist editing is what a text editor
   is for; this covers the field people actually change.
+- **Touch anything outside `~/Library/LaunchAgents`.** No `/Library`, no root daemons.
 
 ## Notes
 

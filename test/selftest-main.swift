@@ -48,8 +48,26 @@ do { try PlistWriter.setSchedule(.manual, for: j2, isRunning: true)
      fail("edit while running was allowed") } catch {}
 print("6. guards            OK")
 
+// 7. delete - guarded while running, then for real
+do { try PlistWriter.remove(j2, isRunning: true); fail("delete while running was allowed") } catch {}
+do { try PlistWriter.remove(j2, isRunning: false) }
+catch { fail("remove threw: \(error.localizedDescription)") }
+guard !FileManager.default.fileExists(atPath: PLIST) else { fail("plist still there after delete") }
+guard !run("/bin/launchctl", ["list"]).contains(LBL) else { fail("still loaded after delete") }
+guard Agents.load().first(where: { $0.label == LBL }) == nil else { fail("still listed after delete") }
+print("7. delete            OK")
+
+// Recoverable is the whole point of trashing rather than unlinking.
+let trash = (NSHomeDirectory() as NSString).appendingPathComponent(".Trash")
+let trashed = ((try? FileManager.default.contentsOfDirectory(atPath: trash)) ?? [])
+    .contains { $0.hasPrefix("\(LBL).plist") }
+print("8. recoverable       \(trashed ? "OK (in Trash)" : "NOT IN TRASH")")
+
 // cleanup
-run("/bin/launchctl", ["bootout", "gui/\(PlistWriter.uid)/\(LBL)"])
-for p in [PLIST, PLIST + ".bak", SCRIPT, LOG] { try? FileManager.default.removeItem(atPath: p) }
+for p in [SCRIPT, LOG] { try? FileManager.default.removeItem(atPath: p) }
+for f in ((try? FileManager.default.contentsOfDirectory(atPath: trash)) ?? [])
+    where f.hasPrefix("\(LBL).plist") {
+    try? FileManager.default.removeItem(atPath: (trash as NSString).appendingPathComponent(f))
+}
 print("cleanup              OK")
 print("\nALL PASS")
