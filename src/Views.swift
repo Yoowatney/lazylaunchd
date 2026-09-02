@@ -102,13 +102,18 @@ struct LogPane: View {
                         .padding(12)
                         .id("end")
                 }
-                .onChange(of: text) { _, _ in
+                // The single-parameter onChange is deprecated on macOS 14 but is the
+                // only form Ventura has, and it is all this needs.
+                .onChange(of: text) { _ in
                     withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("end", anchor: .bottom) }
                 }
             }
         }
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator))
+        // AppKit's semantic colours rather than SwiftUI's .background.secondary and
+        // .separator, which both arrived in macOS 14. These adapt to dark mode just
+        // the same.
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor)))
     }
 }
 

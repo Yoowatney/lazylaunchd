@@ -103,7 +103,7 @@ changing `PlistWriter`.
 
 ## Notes
 
-- Requires macOS 14 or newer.
+- Requires macOS 13 (Ventura) or newer, on both Apple silicon and Intel.
 - The app is signed ad-hoc at build time, which is enough to launch something you
   compiled yourself. It is not notarized — you built it, so there is nothing to
   notarize against.

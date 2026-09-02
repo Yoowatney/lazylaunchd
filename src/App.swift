@@ -115,6 +115,24 @@ struct DetailView: View {
     }
 }
 
+/// Hand-rolled rather than ContentUnavailableView, which needs macOS 14. This is the
+/// only thing that stood between the app and running on Ventura.
+struct EmptySelection: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "clock.badge.checkmark")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("No agent selected")
+                .font(.system(size: 15, weight: .semibold))
+            Text("Pick an agent on the left to run it now.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 struct ContentView: View {
     @StateObject private var runner = Runner()
     @State private var selection: Job?
@@ -162,10 +180,7 @@ struct ContentView: View {
                            onDeleted: { self.selection = runner.jobs.first })
                     .id(selection.label)
             } else {
-                ContentUnavailableView(
-                    "No agent selected",
-                    systemImage: "clock.badge.checkmark",
-                    description: Text("Pick an agent on the left to run it now."))
+                EmptySelection()
             }
         }
         .navigationTitle("lazylaunchd")

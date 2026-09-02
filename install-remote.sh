@@ -24,7 +24,7 @@ die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 [ "$(uname -s)" = "Darwin" ] || die "macOS only - launchd is a macOS thing."
 
 major=$(sw_vers -productVersion | cut -d. -f1)
-[ "$major" -ge 14 ] 2>/dev/null || die "needs macOS 14 or newer (found $(sw_vers -productVersion))."
+[ "$major" -ge 13 ] 2>/dev/null || die "needs macOS 13 or newer (found $(sw_vers -productVersion))."
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

@@ -13,20 +13,34 @@ APP="$DEST/$APP_NAME.app"
 # release.sh sets this from the tag; a plain build just says 1.0.
 VERSION="${VERSION:-1.0}"
 
+# Declared once and used for BOTH the compiler target and LSMinimumSystemVersion.
+# They were separate before, and swiftc defaults its target to whatever the build
+# machine runs - so the app claimed macOS 14 while the binary demanded macOS 26, and
+# would have refused to launch for everyone who took the claim at face value.
+MIN_MACOS="13.0"
+
 command -v swiftc >/dev/null || {
   echo "swiftc not found. Install the Xcode Command Line Tools:" >&2
   echo "  xcode-select --install" >&2
   exit 1
 }
 
-echo "==> Building"
+echo "==> Building (universal, macOS $MIN_MACOS+)"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-# -parse-as-library: the file uses @main rather than top-level statements.
+# -parse-as-library: the sources use @main rather than top-level statements.
 # -swift-version 5: keeps Swift 6's strict concurrency checking out of a UI app
 #    that is single-actor by construction.
-swiftc -parse-as-library -swift-version 5 -O \
-  -o "$APP/Contents/MacOS/$APP_NAME" \
-  "$SRC_DIR"/src/*.swift
+# Built for both architectures and merged: an arm64-only build simply does not run
+# on the Intel Macs that are a good part of the machines still on macOS 13.
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+for arch in arm64 x86_64; do
+  swiftc -parse-as-library -swift-version 5 -O \
+    -target "$arch-apple-macosx$MIN_MACOS" \
+    -o "$STAGE/$arch" \
+    "$SRC_DIR"/src/*.swift
+done
+lipo -create -output "$APP/Contents/MacOS/$APP_NAME" "$STAGE/arm64" "$STAGE/x86_64"
 
 echo "==> Writing bundle"
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -42,7 +56,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSMinimumSystemVersion</key><string>$MIN_MACOS</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
 PLIST

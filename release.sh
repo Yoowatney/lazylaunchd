@@ -50,6 +50,27 @@ echo "==> Checking it still passes its own tests"
 echo "==> Building $TAG"
 VERSION="$VERSION_NUM" ./install.sh "$(pwd)/$BUILD" >/dev/null
 
+# v1.0.1 shipped claiming macOS 14 while the binary was built for the machine that
+# compiled it, so it would not have launched anywhere but that machine. Nothing about
+# that is visible without looking, hence looking.
+echo "==> Checking the binary matches what the bundle claims"
+BIN="$BUILD/LazyLaunchd.app/Contents/MacOS/LazyLaunchd"
+CLAIMED=$(plutil -extract LSMinimumSystemVersion raw "$BUILD/LazyLaunchd.app/Contents/Info.plist")
+ACTUAL=$(otool -l "$BIN" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; f=0}' | sort -u)
+[ "$(echo "$ACTUAL" | wc -l)" -eq 1 ] || { echo "slices disagree on minos: $ACTUAL" >&2; exit 1; }
+[ "$CLAIMED" = "$ACTUAL" ] || {
+  echo "Info.plist says macOS $CLAIMED but the binary needs $ACTUAL" >&2; exit 1; }
+ARCHS=$(lipo -archs "$BIN")
+case "$ARCHS" in
+  *arm64*) ;;
+  *) echo "no arm64 slice: $ARCHS" >&2; exit 1 ;;
+esac
+case "$ARCHS" in
+  *x86_64*) ;;
+  *) echo "no x86_64 slice — Intel Macs could not run this: $ARCHS" >&2; exit 1 ;;
+esac
+echo "    macOS $CLAIMED+, $ARCHS"
+
 # ditto, not zip: it preserves the bundle's resource forks and symlinks, which a
 # plain zip mangles badly enough that the downloaded app refuses to launch.
 echo "==> Packing"
