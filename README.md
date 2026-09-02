@@ -7,7 +7,7 @@ To trigger one of your own jobs right now you have to remember its label, type
 `launchctl start com.you.thing`, then work out which file that particular job writes
 to before you can `tail` it. This does those three things for you.
 
-![screenshot](docs/screenshot.png)
+![demo](docs/demo.gif)
 
 ## What it does
 
