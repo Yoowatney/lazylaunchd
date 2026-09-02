@@ -20,19 +20,35 @@ to before you can `tail` it. This does those three things for you.
 - **Creates a new agent** from a script, a schedule and a log path
 - **Deletes one** — unloads it and puts the plist in the Trash, so you can put it back
 
-## Install
+## Download
 
-Needs the Xcode Command Line Tools for `swiftc` (`xcode-select --install`).
-Nothing else: SwiftUI ships with macOS, so the built app has no dependencies.
+Grab the zip from [Releases](https://github.com/Yoowatney/lazylaunchd/releases),
+unzip it, and drag **LazyLaunchd.app** to your Applications folder.
+
+The app is ad-hoc signed rather than notarized — notarizing needs a paid Apple
+Developer account — so macOS blocks the first launch with "cannot be opened because
+the developer cannot be verified". To allow it:
+
+1. Try to open the app once, and dismiss the warning.
+2. Open **System Settings → Privacy & Security** and scroll to the bottom.
+3. Press **Open Anyway** next to LazyLaunchd.
+
+macOS asks once. After that it opens like anything else.
+
+## Build it yourself
+
+Needs the Xcode Command Line Tools for `swiftc` (`xcode-select --install`). Nothing
+else: SwiftUI ships with macOS, so the built app has no dependencies. Building
+locally also sidesteps the Gatekeeper prompt above, since nothing was downloaded.
 
 ```sh
-git clone https://github.com/<you>/lazylaunchd
+git clone https://github.com/Yoowatney/lazylaunchd
 cd lazylaunchd
-./install.sh              # builds and installs to ~/Applications
+./install.sh                # builds and installs to ~/Applications
 ./install.sh /Applications  # or somewhere else
 ```
 
-Then open it from Spotlight (⌘Space, "launchd") or drag it to the Dock.
+Then open it from Spotlight (⌘Space, "lazylaunchd") or drag it to the Dock.
 
 ## Finding the log
 

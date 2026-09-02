@@ -10,6 +10,8 @@ SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="LazyLaunchd"
 DEST="${1:-$HOME/Applications}"
 APP="$DEST/$APP_NAME.app"
+# release.sh sets this from the tag; a plain build just says 1.0.
+VERSION="${VERSION:-1.0}"
 
 command -v swiftc >/dev/null || {
   echo "swiftc not found. Install the Xcode Command Line Tools:" >&2
@@ -35,8 +37,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>lazylaunchd</string>
   <key>CFBundleIdentifier</key><string>io.github.lazylaunchd</string>
-  <key>CFBundleVersion</key><string>1.0</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
