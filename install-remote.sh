@@ -14,7 +14,9 @@ set -euo pipefail
 REPO="Yoowatney/lazylaunchd"
 APP_NAME="LazyLaunchd"
 DEST="${LAZYLAUNCHD_DEST:-$HOME/Applications}"
-URL="https://github.com/$REPO/releases/latest/download/$APP_NAME.zip"
+# Overridable so the whole path can be exercised against a local build, which is the
+# only way to test this while the repo is private and anonymous downloads 404.
+URL="${LAZYLAUNCHD_URL:-https://github.com/$REPO/releases/latest/download/$APP_NAME.zip}"
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
