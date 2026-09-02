@@ -27,7 +27,7 @@ guard j1.schedule == .daily(hour: 3, minute: 7) else { fail("schedule wrong: \(j
 print("2. reads back 03:07 OK")
 
 // 3. launchd actually accepted it
-let listed = run("/bin/launchctl", ["list"]).contains(LBL)
+let listed = run("/bin/launchctl", ["list"]).stdout.contains(LBL)
 print("3. launchd loaded    \(listed ? "OK" : "NOT LOADED")")
 
 // 4. change the schedule
@@ -90,7 +90,7 @@ do { try PlistWriter.remove(j4, isRunning: true); fail("delete while running was
 do { try PlistWriter.remove(j4, isRunning: false) }
 catch { fail("remove threw: \(error.localizedDescription)") }
 guard !FileManager.default.fileExists(atPath: PLIST) else { fail("plist still there after delete") }
-guard !run("/bin/launchctl", ["list"]).contains(LBL) else { fail("still loaded after delete") }
+guard !run("/bin/launchctl", ["list"]).stdout.contains(LBL) else { fail("still loaded after delete") }
 guard Agents.load().first(where: { $0.label == LBL }) == nil else { fail("still listed after delete") }
 print("11. delete            OK")
 
@@ -99,6 +99,19 @@ let trash = (NSHomeDirectory() as NSString).appendingPathComponent(".Trash")
 let trashed = ((try? FileManager.default.contentsOfDirectory(atPath: trash)) ?? [])
     .contains { $0.hasPrefix("\(LBL).plist") }
 print("12. recoverable       \(trashed ? "OK (in Trash)" : "NOT IN TRASH")")
+
+// 13. a bootstrap that does not take must be reported. This is the case that used to
+// pass in silence: bootout succeeds, bootstrap does not, and the agent is left
+// unloaded while the app tells the user the save went through. Pointing reload at a
+// plist that is not there is the cheapest way to make launchd refuse, and it creates
+// nothing to clean up afterwards.
+let ghost = "com.lazylaunchd.selftest.missing"
+let ghostPlist = (Agents.directory as NSString).appendingPathComponent("\(ghost).plist")
+guard !FileManager.default.fileExists(atPath: ghostPlist) else { fail("\(ghostPlist) exists - pick another label") }
+let refused = PlistWriter.reload(label: ghost, plistPath: ghostPlist)
+guard !refused.ok else { fail("bootstrap of a missing plist reported success") }
+guard !refused.message.isEmpty else { fail("bootstrap failed without saying why") }
+print("13. failure surfaces OK (\(refused.message.split(separator: "\n").first ?? ""))")
 
 // cleanup
 for p in [SCRIPT, LOG] { try? FileManager.default.removeItem(atPath: p) }

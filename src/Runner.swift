@@ -47,9 +47,13 @@ final class Runner: ObservableObject {
             acc[path] = fileSize(path)
         }
 
-        let err = run("/bin/launchctl", ["start", job.label])
-        if !err.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            outputs[job.label] = err
+        // launchctl start refuses a job that is not loaded, and says so on stderr with
+        // a non-zero status. Checking stdout instead meant that failure looked like a
+        // successful run, and the log poll below then reported it as an agent that had
+        // simply printed nothing.
+        let started = run("/bin/launchctl", ["start", job.label])
+        if !started.ok {
+            outputs[job.label] = "Could not start \(job.label):\n\(started.message)"
             isRunning = false
             runningLabel = nil
             states = Agents.states()
