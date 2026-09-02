@@ -1,10 +1,10 @@
-// LaunchdRunner - a small macOS app to run your own launchd agents by hand.
+// lazylaunchd - a small macOS app to run your own launchd agents by hand.
 //
 // launchd is good at running things on a schedule and bad at letting you run one
 // right now and watch what it did. This lists the agents in ~/Library/LaunchAgents,
 // runs the one you pick, and streams whatever that job writes to its log.
 //
-// Single file on purpose: `swiftc LaunchdRunner.swift` is the whole build.
+// Single file on purpose: `swiftc LazyLaunchd.swift` is the whole build.
 
 import SwiftUI
 import AppKit
@@ -92,11 +92,11 @@ enum Agents {
     /// write and has no reason to trigger by hand.
     static let skipPrefixes = ["com.apple.", "com.google.", "homebrew.", "com.github.facebook."]
 
-    /// Normally ~/Library/LaunchAgents. LAUNCHD_RUNNER_AGENTS_DIR points it somewhere
+    /// Normally ~/Library/LaunchAgents. LAZYLAUNCHD_AGENTS_DIR points it somewhere
     /// else, which is how the screenshots are taken against a folder of sample agents
     /// instead of whatever the author happens to have installed.
     static var directory: String {
-        if let override = ProcessInfo.processInfo.environment["LAUNCHD_RUNNER_AGENTS_DIR"],
+        if let override = ProcessInfo.processInfo.environment["LAZYLAUNCHD_AGENTS_DIR"],
            !override.isEmpty {
             return (override as NSString).expandingTildeInPath
         }
@@ -850,7 +850,7 @@ struct ContentView: View {
                     description: Text("Pick an agent on the left to run it now."))
             }
         }
-        .navigationTitle("launchd runner")
+        .navigationTitle("lazylaunchd")
         .frame(minWidth: 760, minHeight: 480)
         .onAppear {
             runner.refresh()
@@ -860,7 +860,7 @@ struct ContentView: View {
 }
 
 @main
-struct LaunchdRunnerApp: App {
+struct LazyLaunchdApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

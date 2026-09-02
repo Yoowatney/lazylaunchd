@@ -9,7 +9,7 @@
 # the demo folder, so their status dots and exit codes are real rather than faked.
 set -euo pipefail
 
-DEMO="${TMPDIR:-/tmp}/launchd-runner-demo"
+DEMO="${TMPDIR:-/tmp}/lazylaunchd-demo"
 UID_="$(id -u)"
 LABELS=(
   com.example.backup-photos
@@ -95,6 +95,6 @@ echo "Launching the app against the demo folder."
 echo "Select an agent and press Run, then take the screenshot."
 echo "When you're done:  ./test/demo-agents.sh clean"
 
-APP="$HOME/Applications/LaunchdRunner.app/Contents/MacOS/LaunchdRunner"
+APP="$HOME/Applications/LazyLaunchd.app/Contents/MacOS/LazyLaunchd"
 [ -x "$APP" ] || { echo "build it first: ./install.sh" >&2; exit 1; }
-LAUNCHD_RUNNER_AGENTS_DIR="$DEMO" "$APP" &
+LAZYLAUNCHD_AGENTS_DIR="$DEMO" "$APP" &

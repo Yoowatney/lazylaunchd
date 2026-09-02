@@ -10,8 +10,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VIEWS=$(grep -n '^// MARK: - Views' src/LaunchdRunner.swift | cut -d: -f1)
-head -n $((VIEWS - 1)) src/LaunchdRunner.swift > /tmp/lr-selftest.swift
+VIEWS=$(grep -n '^// MARK: - Views' src/LazyLaunchd.swift | cut -d: -f1)
+head -n $((VIEWS - 1)) src/LazyLaunchd.swift > /tmp/lr-selftest.swift
 cat test/selftest-main.swift >> /tmp/lr-selftest.swift
 
 swiftc -swift-version 5 -o /tmp/lr-selftest-bin /tmp/lr-selftest.swift

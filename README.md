@@ -1,4 +1,4 @@
-# launchd runner
+# lazylaunchd
 
 A small macOS app for running your own `launchd` agents by hand and watching what they do.
 
@@ -26,8 +26,8 @@ Needs the Xcode Command Line Tools for `swiftc` (`xcode-select --install`).
 Nothing else: SwiftUI ships with macOS, so the built app has no dependencies.
 
 ```sh
-git clone https://github.com/<you>/launchd-runner
-cd launchd-runner
+git clone https://github.com/<you>/lazylaunchd
+cd lazylaunchd
 ./install.sh              # builds and installs to ~/Applications
 ./install.sh /Applications  # or somewhere else
 ```

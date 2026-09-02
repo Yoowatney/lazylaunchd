@@ -1,6 +1,6 @@
 
 // ---- self check ----
-let LBL = "com.launchdrunner.selftest"
+let LBL = "com.lazylaunchd.selftest"
 let SCRIPT = "/tmp/lr-selftest.sh"
 let LOG = "/tmp/lr-selftest.log"
 let PLIST = (Agents.directory as NSString).appendingPathComponent("\(LBL).plist")

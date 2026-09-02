@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build LaunchdRunner.app and install it into ~/Applications.
+# Build LazyLaunchd.app and install it into ~/Applications.
 #
 # Needs the Swift compiler, which comes with the Xcode Command Line Tools:
 #   xcode-select --install
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="LaunchdRunner"
+APP_NAME="LazyLaunchd"
 DEST="${1:-$HOME/Applications}"
 APP="$DEST/$APP_NAME.app"
 
@@ -33,8 +33,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>$APP_NAME</string>
-  <key>CFBundleDisplayName</key><string>launchd runner</string>
-  <key>CFBundleIdentifier</key><string>io.github.launchd-runner</string>
+  <key>CFBundleDisplayName</key><string>lazylaunchd</string>
+  <key>CFBundleIdentifier</key><string>io.github.lazylaunchd</string>
   <key>CFBundleVersion</key><string>1.0</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
