@@ -92,8 +92,15 @@ enum Agents {
     /// write and has no reason to trigger by hand.
     static let skipPrefixes = ["com.apple.", "com.google.", "homebrew.", "com.github.facebook."]
 
+    /// Normally ~/Library/LaunchAgents. LAUNCHD_RUNNER_AGENTS_DIR points it somewhere
+    /// else, which is how the screenshots are taken against a folder of sample agents
+    /// instead of whatever the author happens to have installed.
     static var directory: String {
-        (NSHomeDirectory() as NSString).appendingPathComponent("Library/LaunchAgents")
+        if let override = ProcessInfo.processInfo.environment["LAUNCHD_RUNNER_AGENTS_DIR"],
+           !override.isEmpty {
+            return (override as NSString).expandingTildeInPath
+        }
+        return (NSHomeDirectory() as NSString).appendingPathComponent("Library/LaunchAgents")
     }
 
     static func load() -> [Job] {
