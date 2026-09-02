@@ -55,6 +55,11 @@ struct DetailView: View {
                 if let nextRunText {
                     Chip(icon: "arrow.right.circle", text: nextRunText)
                 }
+                // A clock schedule does not rule out a WatchPaths trigger, and showing
+                // only the clock would hide half of why the agent wakes.
+                if let also = job.alsoStartsOn {
+                    Chip(icon: "bolt", text: "also \(also)", tint: .orange)
+                }
             }
 
             HStack(spacing: 10) {
@@ -74,7 +79,12 @@ struct DetailView: View {
                     Label("Schedule", systemImage: "calendar.badge.clock")
                 }
                 .controlSize(.large)
-                .disabled(runner.isRunning)
+                // Off for agents started by something other than the clock: the sheet
+                // cannot express WatchPaths and friends, and saving over one would
+                // leave the trigger in place under a schedule that lies about it.
+                .disabled(runner.isRunning || !job.schedule.isEditable)
+                .help(job.schedule.isEditable ? ""
+                      : "\(job.shortName) starts \(job.schedule.fullLabel). Edit its plist directly to change that.")
 
                 Button("Reveal plist") {
                     NSWorkspace.shared.selectFile(job.plistPath, inFileViewerRootedAtPath: "")

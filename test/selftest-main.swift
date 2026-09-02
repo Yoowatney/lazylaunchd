@@ -113,6 +113,35 @@ guard !refused.ok else { fail("bootstrap of a missing plist reported success") }
 guard !refused.message.isEmpty else { fail("bootstrap failed without saying why") }
 print("13. failure surfaces OK (\(refused.message.split(separator: "\n").first ?? ""))")
 
+
+// 14. an agent launchd starts for a non-clock reason must say so. Calling a WatchPaths
+// agent "manual" told people it only ran when they pressed Run, while it was in fact
+// waking on every file change - one had been doing that and dying for months.
+let trig = "com.lazylaunchd.selftest.trigger"
+let trigPlist = (Agents.directory as NSString).appendingPathComponent("\(trig).plist")
+guard !FileManager.default.fileExists(atPath: trigPlist) else { fail("\(trigPlist) exists") }
+try! PropertyListSerialization.data(
+    fromPropertyList: ["Label": trig,
+                       "ProgramArguments": ["/bin/echo", "hi"],
+                       "WatchPaths": ["/tmp"]] as [String: Any],
+    format: .xml, options: 0).write(to: URL(fileURLWithPath: trigPlist))
+
+guard let tj = Agents.load().first(where: { $0.label == trig }) else { fail("trigger agent not listed") }
+guard tj.schedule == .trigger("on file change") else {
+    fail("WatchPaths agent read as \(tj.schedule) instead of a trigger")
+}
+guard !tj.schedule.isEditable else { fail("a trigger agent should not be editable") }
+print("14. trigger honest   OK (\(tj.schedule.fullLabel))")
+
+// Editing one would clear the clock keys and leave WatchPaths, so the app would start
+// calling it something it is not. It has to refuse.
+do {
+    try PlistWriter.setSchedule(.daily(hour: 5, minute: 0), for: tj, isRunning: false)
+    fail("setSchedule accepted a WatchPaths agent")
+} catch {}
+print("15. refuses to edit  OK")
+try? FileManager.default.removeItem(atPath: trigPlist)
+
 // cleanup
 for p in [SCRIPT, LOG] { try? FileManager.default.removeItem(atPath: p) }
 for f in ((try? FileManager.default.contentsOfDirectory(atPath: trash)) ?? [])

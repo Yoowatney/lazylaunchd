@@ -32,6 +32,31 @@ enum Agents {
         }.sorted()
     }
 
+    /// The non-clock reasons launchd starts something. Without these an agent watching
+    /// a directory was labelled "manual", which reads as "only runs when you press
+    /// Run" - and one of those had been waking on every file change and dying for
+    /// months before anyone saw it.
+    ///
+    /// Ordered by how much it explains: a watched path tells you more about why an
+    /// agent keeps waking than KeepAlive does, so it wins when a plist has both.
+    static func trigger(in plist: [String: Any]) -> String? {
+        if let paths = plist["WatchPaths"] as? [String], !paths.isEmpty {
+            return paths.count == 1 ? "on file change" : "on file change (\(paths.count) paths)"
+        }
+        if let dirs = plist["QueueDirectories"] as? [String], !dirs.isEmpty {
+            return "on queued files"
+        }
+        if plist["StartOnMount"] as? Bool == true { return "on volume mount" }
+        if let sockets = plist["Sockets"] as? [String: Any], !sockets.isEmpty {
+            return "on connection"
+        }
+        // KeepAlive is a dictionary of conditions as often as it is a plain true.
+        if let alive = plist["KeepAlive"] as? Bool, alive { return "always on" }
+        if plist["KeepAlive"] is [String: Any] { return "always on (conditional)" }
+        if plist["RunAtLoad"] as? Bool == true { return "at login" }
+        return nil
+    }
+
     static func load() -> [Job] {
         let fm = FileManager.default
         let files = (try? fm.contentsOfDirectory(atPath: directory)) ?? []
@@ -47,11 +72,17 @@ enum Agents {
             if skipPrefixes.contains(where: { label.hasPrefix($0) }) { continue }
 
             var schedule = Schedule.manual
+            var alsoStartsOn: String?
             let calTimes = Agents.times(in: plist["StartCalendarInterval"])
+            let other = Agents.trigger(in: plist)
             if !calTimes.isEmpty {
                 schedule = .daily(calTimes)
+                alsoStartsOn = other      // a clock job can also watch a path
             } else if let every = plist["StartInterval"] as? Int {
                 schedule = .interval(seconds: every)
+                alsoStartsOn = other
+            } else if let other {
+                schedule = .trigger(other)
             }
 
             var logs: [String] = []
@@ -65,6 +96,7 @@ enum Agents {
             }
 
             jobs.append(Job(label: label, plistPath: path, schedule: schedule,
+                            alsoStartsOn: alsoStartsOn,
                             logCandidates: Array(Set(logs)).sorted()))
         }
         return jobs

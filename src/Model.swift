@@ -19,6 +19,12 @@ enum Schedule: Equatable {
     /// misreported those jobs, and writing a single entry back deleted the rest.
     case daily([TimeOfDay])
     case interval(seconds: Int)
+    /// launchd starts jobs for reasons other than the clock - a watched path changing,
+    /// a volume mounting, KeepAlive. Those used to fall through to `manual`, which told
+    /// people an agent only ran when they pressed Run while it was in fact waking on
+    /// its own. Naming the trigger is the honest answer, and the editor refuses to
+    /// touch these rather than quietly writing a schedule alongside one.
+    case trigger(String)
     case manual
 
     static func daily(hour: Int, minute: Int) -> Schedule {
@@ -47,9 +53,19 @@ enum Schedule: Equatable {
             return "daily " + times.map(\.text).joined(separator: ", ")
         case .interval(let s):
             return s % 3600 == 0 ? "every \(s / 3600)h" : "every \(s)s"
+        case .trigger(let what):
+            return what
         case .manual:
             return "manual"
         }
+    }
+
+    /// Whether the schedule sheet can represent this. It cannot express WatchPaths and
+    /// friends, and saving over one would leave the trigger in place while the app
+    /// started calling the agent something it is not.
+    var isEditable: Bool {
+        if case .trigger = self { return false }
+        return true
     }
 
     /// True when `label` had to leave something out.
@@ -73,6 +89,10 @@ struct Job: Identifiable, Hashable {
     let label: String
     let plistPath: String
     let schedule: Schedule
+    /// Set when an agent has a clock schedule *and* something like WatchPaths. The
+    /// schedule is the editable part, but showing only that hides half of why the
+    /// agent wakes up.
+    let alsoStartsOn: String?
     /// Files this job might write to. launchd's StandardOutPath is often an empty
     /// capture file while the real record goes to a log the script opens itself,
     /// so we keep every candidate and later show whichever one actually grew.

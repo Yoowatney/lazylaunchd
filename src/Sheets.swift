@@ -133,6 +133,10 @@ struct EditScheduleSheet: View {
         case .interval(let s):
             kind = 1
             everyHours = max(1, s / 3600)
+        case .trigger:
+            // Not reachable: the Schedule button is disabled for these. Handled so
+            // that adding a schedule kind later cannot silently skip it.
+            kind = 2
         case .manual:
             kind = 2
         }

@@ -32,6 +32,11 @@ enum PlistWriter {
             dict["StartCalendarInterval"] = entries.count == 1 ? entries[0] : entries
         case .interval(let s):
             dict["StartInterval"] = s
+        case .trigger:
+            // Never written. setSchedule refuses these, and the sheet cannot produce
+            // one; writing a clock schedule over WatchPaths would leave the trigger in
+            // place while the app claimed the agent ran on a timer.
+            break
         case .manual:
             break
         }
@@ -79,6 +84,17 @@ enum PlistWriter {
 
     static func setSchedule(_ schedule: Schedule, for job: Job, isRunning: Bool) throws {
         if isRunning { throw PlistError.running }
+        // Clearing the clock keys would not remove WatchPaths, KeepAlive and the rest,
+        // so the agent would keep waking on its own while the app reported whatever
+        // schedule was just written. Refusing is the honest option; these plists are a
+        // text-editor job.
+        guard job.schedule.isEditable else {
+            throw PlistError.write(
+                "\(job.label) starts \(job.schedule.fullLabel), which this editor cannot "
+                + "represent.\n\nSetting a schedule here would leave that trigger in "
+                + "place and the agent would run for both reasons. Edit the plist "
+                + "directly instead — Reveal plist will take you to it.")
+        }
         guard let data = FileManager.default.contents(atPath: job.plistPath),
               var dict = try? PropertyListSerialization.propertyList(
                   from: data, format: nil) as? [String: Any]

@@ -13,7 +13,9 @@ to before you can `tail` it. This does those three things for you.
 
 - Lists every agent in `~/Library/LaunchAgents`, minus the ones belonging to Apple,
   Google and Homebrew — the list is what *you* installed
-- Shows each one's schedule (`daily 11:30`, `every 1h`, `manual`) and next fire time
+- Shows why each one runs — `daily 11:30`, `every 1h`, or the trigger launchd is
+  actually watching for (`on file change`, `always on`, `at login`) — and when it
+  next fires
 - Shows the exit code of the last run, so a job that has been quietly failing is visible
 - **Runs one now** and streams its output live, from whichever log it actually writes to
 - **Changes a schedule** without opening the plist in an editor
@@ -98,7 +100,11 @@ changing `PlistWriter`.
 - **Show system agents.** `launchctl list` has hundreds of Apple entries. None of
   them are yours to trigger.
 - **Edit anything but the schedule.** Arbitrary plist editing is what a text editor
-  is for; this covers the field people actually change.
+  is for; this covers the field people actually change. Agents started by something
+  other than the clock — `WatchPaths`, `KeepAlive`, `StartOnMount` — are shown with
+  the trigger they actually use and the schedule editor is switched off for them:
+  writing a schedule would leave the trigger in place and the app would then be
+  describing the agent as something it is not.
 - **Touch anything outside `~/Library/LaunchAgents`.** No `/Library`, no root daemons.
 
 ## Notes
