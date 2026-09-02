@@ -37,7 +37,9 @@ fi
 
 VERSION_NUM="${TAG#v}"
 BUILD="build"
-ZIP="$BUILD/LazyLaunchd-$TAG.zip"
+# Deliberately unversioned: it makes /releases/latest/download/LazyLaunchd.zip a
+# stable URL, which is what install-remote.sh and the README one-liner rely on.
+ZIP="$BUILD/LazyLaunchd.zip"
 
 rm -rf "$BUILD"
 mkdir -p "$BUILD"
@@ -60,11 +62,17 @@ git push origin "$TAG"
 
 gh release create "$TAG" "$ZIP" \
   --title "$TAG" \
-  --notes "Download \`LazyLaunchd-$TAG.zip\`, unzip it, and drag **LazyLaunchd.app** to your Applications folder.
+  --notes "### Install
 
-The app is ad-hoc signed rather than notarized, so the first launch is blocked. Open
-**System Settings → Privacy & Security**, scroll down, and press **Open Anyway**. macOS
-asks once.
+\`\`\`sh
+curl -fsSL https://raw.githubusercontent.com/Yoowatney/lazylaunchd/main/install-remote.sh | bash
+\`\`\`
+
+Or download \`LazyLaunchd.zip\` below, unzip it, and drag **LazyLaunchd.app** to your
+Applications folder. Downloading by hand means macOS blocks the first launch, since the
+app is ad-hoc signed rather than notarized — open **System Settings → Privacy & Security**,
+scroll down, and press **Open Anyway**. The script above avoids that by clearing the
+quarantine flag on something you explicitly asked to install.
 
 Prefer to build it yourself? \`./install.sh\` needs only the Xcode Command Line Tools." \
   "$@"

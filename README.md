@@ -20,20 +20,34 @@ to before you can `tail` it. This does those three things for you.
 - **Creates a new agent** from a script, a schedule and a log path
 - **Deletes one** — unloads it and puts the plist in the Trash, so you can put it back
 
-## Download
+## Install
 
-Grab the zip from [Releases](https://github.com/Yoowatney/lazylaunchd/releases),
+```sh
+curl -fsSL https://raw.githubusercontent.com/Yoowatney/lazylaunchd/main/install-remote.sh | bash
+```
+
+No git, no Xcode, no Homebrew. It downloads the latest release into `~/Applications`
+and the app opens straight away. If you would rather read it before running it, it is
+[right here](install-remote.sh) — 60 lines.
+
+<details>
+<summary>Or download it by hand</summary>
+
+Grab `LazyLaunchd.zip` from [Releases](https://github.com/Yoowatney/lazylaunchd/releases),
 unzip it, and drag **LazyLaunchd.app** to your Applications folder.
 
-The app is ad-hoc signed rather than notarized — notarizing needs a paid Apple
-Developer account — so macOS blocks the first launch with "cannot be opened because
-the developer cannot be verified". To allow it:
+Going this route, macOS blocks the first launch with "cannot be opened because the
+developer cannot be verified" — the app is ad-hoc signed rather than notarized, and
+notarizing needs a paid Apple Developer account. To allow it:
 
 1. Try to open the app once, and dismiss the warning.
 2. Open **System Settings → Privacy & Security** and scroll to the bottom.
 3. Press **Open Anyway** next to LazyLaunchd.
 
-macOS asks once. After that it opens like anything else.
+macOS asks once. The script above skips this by clearing the quarantine flag, which
+it can reasonably do because you asked for the install by name.
+
+</details>
 
 ## Build it yourself
 
