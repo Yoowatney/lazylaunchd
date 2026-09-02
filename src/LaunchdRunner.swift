@@ -161,7 +161,7 @@ enum PlistError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .running:    return "This job is running right now. Wait for it to finish."
+        case .running:    return "This agent is running right now. Wait for it to finish."
         case .badLabel:   return "A label needs at least one dot, e.g. com.you.backup."
         case .duplicate:  return "An agent with that label already exists."
         case .noProgram:  return "Pick a script or binary that exists and is executable."
@@ -354,7 +354,7 @@ final class Runner: ObservableObject {
             output += chunk
             offset += UInt64(chunk.utf8.count)
         }
-        if output.isEmpty { output = "(the job wrote nothing to its log)" }
+        if output.isEmpty { output = "(the agent wrote nothing to its log)" }
         timer?.invalidate()
         timer = nil
         isRunning = false
@@ -470,7 +470,7 @@ struct LogPane: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(text.isEmpty ? "Pick a job and press Run." : text)
+                    Text(text.isEmpty ? "Pick an agent and press Run." : text)
                         .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(text.isEmpty ? .secondary : .primary)
                         .textSelection(.enabled)
@@ -775,7 +775,7 @@ struct DetailView: View {
                 Button("Move to Trash", role: .destructive) { delete() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("The agent is unloaded and its plist goes to the Trash, so you can put it back from Finder. Anything the job itself created is left alone.")
+                Text("The agent is unloaded and its plist goes to the Trash, so you can put it back from Finder. Anything the agent itself created is left alone.")
             }
             .alert("Could not delete", isPresented: .constant(deleteError != nil)) {
                 Button("OK") { deleteError = nil }
@@ -819,7 +819,10 @@ struct ContentView: View {
                     Button { runner.refresh() } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .help("Reload agents")
+                    // "Refresh", not "Reload": in launchd terms reloading is
+                    // bootout + bootstrap, which is what saving a schedule does.
+                    // This only re-reads the folder.
+                    .help("Refresh the list")
                 }
             }
             .sheet(isPresented: $creating) {
@@ -835,7 +838,7 @@ struct ContentView: View {
                     .id(selection.label)
             } else {
                 ContentUnavailableView(
-                    "No job selected",
+                    "No agent selected",
                     systemImage: "clock.badge.checkmark",
                     description: Text("Pick an agent on the left to run it now."))
             }
