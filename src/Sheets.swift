@@ -5,7 +5,10 @@ import AppKit
 
 struct ScheduleForm: View {
     @Binding var kind: Int          // 0 daily, 1 interval, 2 manual
-    @Binding var time: Date
+    /// A list, because launchd allows several daily times and a job that runs morning,
+    /// evening and night is ordinary. Editing used to offer one field and silently
+    /// drop the others on save.
+    @Binding var times: [Date]
     @Binding var everyHours: Int
 
     var body: some View {
@@ -18,8 +21,29 @@ struct ScheduleForm: View {
 
         switch kind {
         case 0:
-            DatePicker("At", selection: $time, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.field)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(times.indices, id: \.self) { i in
+                    HStack(spacing: 6) {
+                        DatePicker("", selection: $times[i], displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.field)
+                            .labelsHidden()
+                        Button {
+                            times.remove(at: i)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(times.count <= 1)   // a daily job needs a time
+                        .help("Remove this time")
+                    }
+                }
+                Button {
+                    times.append(times.last.map { $0.addingTimeInterval(3600) } ?? Date())
+                } label: {
+                    Label("Add a time", systemImage: "plus").font(.system(size: 11))
+                }
+                .buttonStyle(.borderless)
+            }
         case 1:
             Stepper("Every \(everyHours) hour\(everyHours == 1 ? "" : "s")",
                     value: $everyHours, in: 1...24)
@@ -30,15 +54,27 @@ struct ScheduleForm: View {
         }
     }
 
-    static func schedule(kind: Int, time: Date, everyHours: Int) -> Schedule {
+    static func schedule(kind: Int, times: [Date], everyHours: Int) -> Schedule {
         switch kind {
         case 0:
-            let c = Calendar.current.dateComponents([.hour, .minute], from: time)
-            return .daily(hour: c.hour ?? 0, minute: c.minute ?? 0)
+            let cal = Calendar.current
+            let parsed = times.map { d -> TimeOfDay in
+                let c = cal.dateComponents([.hour, .minute], from: d)
+                return TimeOfDay(hour: c.hour ?? 0, minute: c.minute ?? 0)
+            }
+            // Two pickers can land on the same time; launchd would just fire twice.
+            return .daily(Array(Set(parsed)).sorted())
         case 1:
             return .interval(seconds: everyHours * 3600)
         default:
             return .manual
+        }
+    }
+
+    static func dates(from times: [TimeOfDay]) -> [Date] {
+        let cal = Calendar.current
+        return times.sorted().compactMap {
+            cal.date(from: DateComponents(hour: $0.hour, minute: $0.minute))
         }
     }
 }
@@ -50,7 +86,7 @@ struct EditScheduleSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var kind = 0
-    @State private var time = Date()
+    @State private var times: [Date] = [Date()]
     @State private var everyHours = 1
     @State private var error: String?
 
@@ -61,7 +97,7 @@ struct EditScheduleSheet: View {
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            Form { ScheduleForm(kind: $kind, time: $time, everyHours: $everyHours) }
+            Form { ScheduleForm(kind: $kind, times: $times, everyHours: $everyHours) }
                 .formStyle(.columns)
 
             if let error {
@@ -90,9 +126,10 @@ struct EditScheduleSheet: View {
 
     private func load() {
         switch job.schedule {
-        case .daily(let h, let m):
+        case .daily(let t):
             kind = 0
-            time = Calendar.current.date(from: DateComponents(hour: h, minute: m)) ?? Date()
+            times = ScheduleForm.dates(from: t)
+            if times.isEmpty { times = [Date()] }
         case .interval(let s):
             kind = 1
             everyHours = max(1, s / 3600)
@@ -104,7 +141,7 @@ struct EditScheduleSheet: View {
     private func save() {
         do {
             try PlistWriter.setSchedule(
-                ScheduleForm.schedule(kind: kind, time: time, everyHours: everyHours),
+                ScheduleForm.schedule(kind: kind, times: times, everyHours: everyHours),
                 for: job, isRunning: isRunning)
             onSaved()
             dismiss()
@@ -123,7 +160,7 @@ struct NewAgentSheet: View {
     @State private var arguments = ""
     @State private var logPath = ""
     @State private var kind = 0
-    @State private var time = Date()
+    @State private var times: [Date] = [Date()]
     @State private var everyHours = 1
     @State private var error: String?
 
@@ -140,7 +177,7 @@ struct NewAgentSheet: View {
                 TextField("Arguments", text: $arguments, prompt: Text("optional"))
                 TextField("Log file", text: $logPath, prompt: Text("optional"))
                 Divider()
-                ScheduleForm(kind: $kind, time: $time, everyHours: $everyHours)
+                ScheduleForm(kind: $kind, times: $times, everyHours: $everyHours)
             }
             .formStyle(.columns)
 
@@ -182,7 +219,7 @@ struct NewAgentSheet: View {
             try PlistWriter.create(
                 label: label.trimmingCharacters(in: .whitespaces),
                 program: program, arguments: arguments,
-                schedule: ScheduleForm.schedule(kind: kind, time: time, everyHours: everyHours),
+                schedule: ScheduleForm.schedule(kind: kind, times: times, everyHours: everyHours),
                 logPath: logPath.trimmingCharacters(in: .whitespaces))
             onCreated()
             dismiss()

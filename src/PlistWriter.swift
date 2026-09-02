@@ -24,9 +24,16 @@ enum PlistWriter {
         dict["StartCalendarInterval"] = nil
         dict["StartInterval"] = nil
         switch schedule {
-        case .daily(let h, let m): dict["StartCalendarInterval"] = ["Hour": h, "Minute": m]
-        case .interval(let s):     dict["StartInterval"] = s
-        case .manual:              break
+        case .daily(let times):
+            // One time stays a plain dict, matching how these files are usually
+            // written by hand; several become the array launchd also accepts. Writing
+            // a single dict for a multi-time job used to delete every time but one.
+            let entries = times.sorted().map { ["Hour": $0.hour, "Minute": $0.minute] }
+            dict["StartCalendarInterval"] = entries.count == 1 ? entries[0] : entries
+        case .interval(let s):
+            dict["StartInterval"] = s
+        case .manual:
+            break
         }
     }
 

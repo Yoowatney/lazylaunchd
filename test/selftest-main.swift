@@ -37,34 +37,68 @@ guard let j2 = Agents.load().first(where: { $0.label == LBL }) else { fail("gone
 guard j2.schedule == .interval(seconds: 7200) else { fail("edit wrong: \(j2.schedule)") }
 print("4. edit -> every 2h  OK")
 
-// 5. backup kept
-print("5. .bak kept         \(FileManager.default.fileExists(atPath: PLIST + ".bak") ? "OK" : "MISSING")")
+// 5-8. multiple daily times: launchd allows an array, and reading only the first
+// entry used to hide the rest while saving deleted them.
+let three: [TimeOfDay] = [.init(hour: 9, minute: 0), .init(hour: 18, minute: 30), .init(hour: 21, minute: 15)]
+do { try PlistWriter.setSchedule(.daily(three), for: j1, isRunning: false) }
+catch { fail("multi-time setSchedule threw: \(error.localizedDescription)") }
 
-// 6. guards
+guard let j3 = Agents.load().first(where: { $0.label == LBL }) else { fail("gone after multi-time edit") }
+guard j3.schedule.times == three else { fail("expected \(three), read back \(j3.schedule.times)") }
+print("5. 3 times survive   OK")
+
+// The file itself should hold an array, not just whatever we happened to keep in memory.
+let raw = try! Data(contentsOf: URL(fileURLWithPath: PLIST))
+let parsed = try! PropertyListSerialization.propertyList(from: raw, format: nil) as! [String: Any]
+guard let arr = parsed["StartCalendarInterval"] as? [[String: Any]], arr.count == 3 else {
+    fail("plist did not get a 3-entry StartCalendarInterval array")
+}
+print("6. written as array  OK")
+
+// Editing one time of a multi-time job must not drop the others.
+var kept = three
+kept[0] = TimeOfDay(hour: 7, minute: 45)
+do { try PlistWriter.setSchedule(.daily(kept), for: j3, isRunning: false) }
+catch { fail("edit-one-of-three threw: \(error.localizedDescription)") }
+guard let j4 = Agents.load().first(where: { $0.label == LBL }),
+      j4.schedule.times == kept.sorted() else { fail("editing one time lost the others") }
+print("7. edit keeps others OK")
+
+// Back to one time, which should collapse to a plain dict again.
+do { try PlistWriter.setSchedule(.daily(hour: 3, minute: 7), for: j4, isRunning: false) }
+catch { fail("back-to-single threw: \(error.localizedDescription)") }
+let raw2 = try! Data(contentsOf: URL(fileURLWithPath: PLIST))
+let parsed2 = try! PropertyListSerialization.propertyList(from: raw2, format: nil) as! [String: Any]
+guard parsed2["StartCalendarInterval"] is [String: Any] else { fail("single time should be a dict") }
+print("8. single collapses  OK")
+
+print("9. .bak kept         \(FileManager.default.fileExists(atPath: PLIST + ".bak") ? "OK" : "MISSING")")
+
+// 10. guards
 do { try PlistWriter.create(label: LBL, program: SCRIPT, arguments: "", schedule: .manual, logPath: "")
      fail("duplicate label was allowed") } catch {}
 do { try PlistWriter.create(label: "nodots", program: SCRIPT, arguments: "", schedule: .manual, logPath: "")
      fail("bad label was allowed") } catch {}
 do { try PlistWriter.create(label: "com.x.y", program: "/nope/nope", arguments: "", schedule: .manual, logPath: "")
      fail("missing program was allowed") } catch {}
-do { try PlistWriter.setSchedule(.manual, for: j2, isRunning: true)
+do { try PlistWriter.setSchedule(.manual, for: j4, isRunning: true)
      fail("edit while running was allowed") } catch {}
-print("6. guards            OK")
+print("10. guards            OK")
 
-// 7. delete - guarded while running, then for real
-do { try PlistWriter.remove(j2, isRunning: true); fail("delete while running was allowed") } catch {}
-do { try PlistWriter.remove(j2, isRunning: false) }
+// 11. delete - guarded while running, then for real
+do { try PlistWriter.remove(j4, isRunning: true); fail("delete while running was allowed") } catch {}
+do { try PlistWriter.remove(j4, isRunning: false) }
 catch { fail("remove threw: \(error.localizedDescription)") }
 guard !FileManager.default.fileExists(atPath: PLIST) else { fail("plist still there after delete") }
 guard !run("/bin/launchctl", ["list"]).contains(LBL) else { fail("still loaded after delete") }
 guard Agents.load().first(where: { $0.label == LBL }) == nil else { fail("still listed after delete") }
-print("7. delete            OK")
+print("11. delete            OK")
 
 // Recoverable is the whole point of trashing rather than unlinking.
 let trash = (NSHomeDirectory() as NSString).appendingPathComponent(".Trash")
 let trashed = ((try? FileManager.default.contentsOfDirectory(atPath: trash)) ?? [])
     .contains { $0.hasPrefix("\(LBL).plist") }
-print("8. recoverable       \(trashed ? "OK (in Trash)" : "NOT IN TRASH")")
+print("12. recoverable       \(trashed ? "OK (in Trash)" : "NOT IN TRASH")")
 
 // cleanup
 for p in [SCRIPT, LOG] { try? FileManager.default.removeItem(atPath: p) }

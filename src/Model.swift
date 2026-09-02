@@ -4,29 +4,56 @@
 import SwiftUI
 import AppKit
 
+struct TimeOfDay: Equatable, Hashable, Comparable, Identifiable {
+    var hour: Int
+    var minute: Int
+
+    var id: Int { hour * 60 + minute }
+    var text: String { String(format: "%02d:%02d", hour, minute) }
+    static func < (a: TimeOfDay, b: TimeOfDay) -> Bool { a.id < b.id }
+}
+
 enum Schedule: Equatable {
-    case daily(hour: Int, minute: Int)
+    /// launchd lets StartCalendarInterval be an array, and a job that runs at 09:00,
+    /// 18:00 and 21:00 is an ordinary thing to want. Reading only the first entry
+    /// misreported those jobs, and writing a single entry back deleted the rest.
+    case daily([TimeOfDay])
     case interval(seconds: Int)
     case manual
 
+    static func daily(hour: Int, minute: Int) -> Schedule {
+        .daily([TimeOfDay(hour: hour, minute: minute)])
+    }
+
+    var times: [TimeOfDay] {
+        if case .daily(let t) = self { return t }
+        return []
+    }
+
     var label: String {
         switch self {
-        case .daily(let h, let m): return String(format: "daily %02d:%02d", h, m)
-        case .interval(let s):     return s % 3600 == 0 ? "every \(s / 3600)h" : "every \(s)s"
-        case .manual:              return "manual"
+        case .daily(let times):
+            let shown = times.prefix(3).map(\.text).joined(separator: ", ")
+            let rest = times.count - 3
+            return rest > 0 ? "daily \(shown) +\(rest)" : "daily \(shown)"
+        case .interval(let s):
+            return s % 3600 == 0 ? "every \(s / 3600)h" : "every \(s)s"
+        case .manual:
+            return "manual"
         }
     }
 
-    /// Next fire time, for the "next run in ..." line. Only calendar jobs get one:
-    /// an interval job's phase depends on when launchd last started it, which is
-    /// not something we can read, and a wrong countdown is worse than none.
+    /// Soonest of the scheduled times, for the "next run in ..." line. Interval jobs
+    /// get none: their phase depends on when launchd last started them, which is not
+    /// readable, and a wrong countdown is worse than no countdown.
     var nextFire: Date? {
-        guard case .daily(let h, let m) = self else { return nil }
+        guard case .daily(let times) = self, !times.isEmpty else { return nil }
         let cal = Calendar.current
-        var comps = DateComponents()
-        comps.hour = h
-        comps.minute = m
-        return cal.nextDate(after: Date(), matching: comps, matchingPolicy: .nextTime)
+        return times.compactMap { t in
+            cal.nextDate(after: Date(),
+                         matching: DateComponents(hour: t.hour, minute: t.minute),
+                         matchingPolicy: .nextTime)
+        }.min()
     }
 }
 

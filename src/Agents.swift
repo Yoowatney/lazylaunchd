@@ -18,6 +18,20 @@ enum Agents {
         return (NSHomeDirectory() as NSString).appendingPathComponent("Library/LaunchAgents")
     }
 
+    /// StartCalendarInterval is either one dict or an array of them - a job that runs
+    /// at 09:00, 18:00 and 21:00 is written as three entries. Entries with no Hour (a
+    /// weekly job pinned to a Weekday, say) are skipped rather than shown as midnight.
+    static func times(in value: Any?) -> [TimeOfDay] {
+        let dicts: [[String: Any]]
+        if let one = value as? [String: Any] { dicts = [one] }
+        else if let many = value as? [[String: Any]] { dicts = many }
+        else { return [] }
+        return dicts.compactMap { d in
+            guard let h = d["Hour"] as? Int else { return nil }
+            return TimeOfDay(hour: h, minute: d["Minute"] as? Int ?? 0)
+        }.sorted()
+    }
+
     static func load() -> [Job] {
         let fm = FileManager.default
         let files = (try? fm.contentsOfDirectory(atPath: directory)) ?? []
@@ -33,12 +47,9 @@ enum Agents {
             if skipPrefixes.contains(where: { label.hasPrefix($0) }) { continue }
 
             var schedule = Schedule.manual
-            if let cal = plist["StartCalendarInterval"] as? [String: Any],
-               let hour = cal["Hour"] as? Int {
-                schedule = .daily(hour: hour, minute: cal["Minute"] as? Int ?? 0)
-            } else if let list = plist["StartCalendarInterval"] as? [[String: Any]],
-                      let first = list.first, let hour = first["Hour"] as? Int {
-                schedule = .daily(hour: hour, minute: first["Minute"] as? Int ?? 0)
+            let calTimes = Agents.times(in: plist["StartCalendarInterval"])
+            if !calTimes.isEmpty {
+                schedule = .daily(calTimes)
             } else if let every = plist["StartInterval"] as? Int {
                 schedule = .interval(seconds: every)
             }
