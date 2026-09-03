@@ -72,6 +72,21 @@ struct LogPane: View {
     /// to the top and take the first line they see for the beginning of the log.
     var truncated: Bool = false
 
+    /// SwiftUI lays a Text out as a single run, and textSelection makes that worse, so
+    /// handing it the whole 128 KB read from a long-running agent's log froze the
+    /// window for seconds on selection. Reading was never the cost — that measured at
+    /// 3 ms — so the fix is to render a page at a time rather than to read less.
+    private static let pageLines = 300
+
+    @State private var visible = LogPane.pageLines
+
+    private var lines: [String] {
+        // Trailing newline would otherwise show as a blank last line.
+        text.hasSuffix("\n")
+            ? text.dropLast().components(separatedBy: "\n")
+            : text.components(separatedBy: "\n")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
@@ -107,13 +122,35 @@ struct LogPane: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(text.isEmpty ? "Pick an agent and press Run." : text)
-                        .font(.system(size: 11.5, design: .monospaced))
-                        .foregroundStyle(text.isEmpty ? .secondary : .primary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .id("end")
+                    let all = lines
+                    let hidden = max(0, all.count - visible)
+                    VStack(alignment: .leading, spacing: 0) {
+                        if hidden > 0 {
+                            Button {
+                                visible += LogPane.pageLines
+                            } label: {
+                                Text("Load \(min(hidden, LogPane.pageLines)) earlier lines  ·  \(hidden) above")
+                                    .font(.system(size: 11))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.bottom, 8)
+                        } else if truncated {
+                            Text("Start of what was read in — the file continues above.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .padding(.bottom, 8)
+                        }
+
+                        Text(text.isEmpty ? "Pick an agent and press Run."
+                                          : all.suffix(visible).joined(separator: "\n"))
+                            .font(.system(size: 11.5, design: .monospaced))
+                            .foregroundStyle(text.isEmpty ? .secondary : .primary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(12)
+                    .id("end")
                 }
                 // The single-parameter onChange is deprecated on macOS 14 but is the
                 // only form Ventura has, and it is all this needs.

@@ -81,6 +81,11 @@ staying blank until you run something by hand. A run appends to it, the way the 
 itself does. Only the last 128 KB is read, and the header says `end of log` when
 there is more above. **Refresh** re-reads everything from disk.
 
+The pane draws the last 300 lines and pages backwards on demand. That is not about
+reading — the read measures at 3 ms against a 15 MB log — but about SwiftUI, which
+lays a `Text` out as one run and froze the window for seconds when handed a whole
+log at once.
+
 ## Editing, creating, deleting
 
 These write real launchd config, so they are careful about it:
