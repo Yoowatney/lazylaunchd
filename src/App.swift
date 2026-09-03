@@ -122,10 +122,14 @@ struct DetailView: View {
 
             LogPane(text: runner.output(for: job),
                     isRunning: runner.isRunning(job),
-                    path: runner.activeLog(for: job))
+                    path: runner.activeLog(for: job),
+                    truncated: runner.isTruncated(job))
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Read the agent's existing log in when it is selected, so the pane opens on
+        // what already happened instead of waiting for a run to give it something.
+        .onAppear { runner.preload(job) }
     }
 }
 

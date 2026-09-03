@@ -68,6 +68,9 @@ struct LogPane: View {
     let text: String
     let isRunning: Bool
     let path: String?
+    /// Only the end of the file is read in, and saying so beats letting someone scroll
+    /// to the top and take the first line they see for the beginning of the log.
+    var truncated: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,6 +81,11 @@ struct LogPane: View {
                 if isRunning {
                     ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
                     Text("live").font(.system(size: 10)).foregroundStyle(Color.accentColor)
+                }
+                if truncated {
+                    Text("· end of log")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if let path {

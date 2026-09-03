@@ -3,6 +3,7 @@
 import SwiftUI
 import Foundation
 
+@MainActor
 final class Runner: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var states: [String: JobState] = [:]
@@ -17,11 +18,54 @@ final class Runner: ObservableObject {
     private var watchedLog: String?
     private var timer: Timer?
     private var runningLabel: String?
+    private var loaded: Set<String> = []
+    private var truncatedLogs: [String: Bool] = [:]
+
+    /// How much of an existing log to read in. Enough to see the last several runs,
+    /// small enough that selecting an agent whose log has grown for months does not
+    /// stall on reading it.
+    static let tailBytes: UInt64 = 128 * 1024
 
     func refresh() {
         jobs = Agents.load()
         states = Agents.states()
+        // Drop what was read in so a log written by a scheduled run since the app
+        // opened shows up. Deliberately part of Refresh rather than automatic: nobody
+        // wants the pane they are reading to move on its own.
+        outputs.removeAll()
+        activeLogs.removeAll()
+        loaded.removeAll()
     }
+
+    /// Reads the tail of whatever the agent has already written, so selecting it shows
+    /// its history rather than an empty pane. Without this the only way to tell whether
+    /// a scheduled run had worked was to run it again by hand and watch.
+    func preload(_ job: Job) {
+        guard !loaded.contains(job.label) else { return }
+        loaded.insert(job.label)
+
+        // The run path learns which file to follow by watching which one grows. Nothing
+        // is growing yet, so go by which was written most recently.
+        let existing = job.logCandidates
+            .map { ($0, modified($0), fileSize($0)) }
+            .filter { $0.2 > 0 }
+            .sorted { $0.1 > $1.1 }
+        guard let (path, _, size) = existing.first else { return }
+
+        let from = size > Runner.tailBytes ? size - Runner.tailBytes : 0
+        guard var text = read(path, from: from), !text.isEmpty else { return }
+        // Starting mid-file almost certainly lands mid-line; drop the fragment rather
+        // than showing half a line as though it were one.
+        if from > 0, let nl = text.firstIndex(of: "\n") {
+            text = String(text[text.index(after: nl)...])
+        }
+        outputs[job.label] = text
+        activeLogs[job.label] = path
+        truncatedLogs[job.label] = from > 0
+    }
+
+    /// True when the pane is showing only the end of a longer log.
+    func isTruncated(_ job: Job) -> Bool { truncatedLogs[job.label] == true }
 
     func output(for job: Job) -> String { outputs[job.label] ?? "" }
     func activeLog(for job: Job) -> String? { activeLogs[job.label] }
@@ -37,8 +81,10 @@ final class Runner: ObservableObject {
 
     func start(_ job: Job) {
         guard !isRunning else { return }
-        outputs[job.label] = ""
-        activeLogs[job.label] = nil
+        // The existing log stays on screen and the new run appends to it, which is what
+        // the file itself does. Clearing here was why a run erased the history that had
+        // just been read in.
+        preload(job)
         isRunning = true
         runningLabel = job.label
 
@@ -102,6 +148,11 @@ final class Runner: ObservableObject {
         isRunning = false
         runningLabel = nil
         states = live
+    }
+
+    private func modified(_ path: String) -> Date {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        return (attrs?[.modificationDate] as? Date) ?? .distantPast
     }
 
     private func fileSize(_ path: String) -> UInt64 {

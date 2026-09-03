@@ -75,6 +75,12 @@ around the job before starting it — `StandardOutPath`, `StandardErrorPath`, an
 `*.log` beside them — and then follows whichever file actually grows. That means it
 finds the right log without you configuring anything per job.
 
+Selecting an agent reads in the end of that log straight away, so the pane opens on
+what already happened — the scheduled runs from last night included — rather than
+staying blank until you run something by hand. A run appends to it, the way the file
+itself does. Only the last 128 KB is read, and the header says `end of log` when
+there is more above. **Refresh** re-reads everything from disk.
+
 ## Editing, creating, deleting
 
 These write real launchd config, so they are careful about it:
